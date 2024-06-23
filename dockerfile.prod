@@ -8,10 +8,9 @@ COPY package*.json ./
 RUN npm install -g npm@latest \
     && npm config set fetch-timeout 120000 \
     && npm config set fetch-retries 5 \
-    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
-    && npm cache clean --force \
-    && rm -rf node_modules package-lock.json
+    && npm cache clean --force
 
 RUN npm install --omit=optional
 
@@ -29,10 +28,9 @@ COPY . .
 # Construye la aplicación
 RUN npm run build
 
-RUN npm ci -f --only=production && npm cache clean --force
+RUN npm ci --only=production && npm cache clean --force
 
 RUN npx prisma generate
-
 
 # Crear la imagen final de docker 
 FROM node:21-alpine3.19 as prod
@@ -46,6 +44,9 @@ COPY --from=build /usr/src/app/dist ./dist
 COPY --from=build /usr/src/app/prisma ./prisma
 
 ENV NODE_ENV=production
+
+# Establecer permisos de escritura para la base de datos
+RUN chown -R node:node /usr/src/app/prisma && chmod 664 /usr/src/app/prisma/dev.db
 
 # Solo privilegio de ejecución
 USER node
